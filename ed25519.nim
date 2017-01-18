@@ -98,3 +98,34 @@ proc keyExchange*(publicKey: PublicKey, privateKey: PrivateKey): SharedSecret =
   var sh: SharedSecret
   lib_ed25519_key_exchange(sh, publicKey, privateKey)
   result = sh
+
+when(isMainModule):
+  # Just some stupid sanity checks that verify little more than that the library
+  # compiles and runs. It is *NOT* a crypto test suite.
+
+  import unittest
+
+  const Testdata = "test data"
+
+  suite "ed25519":
+    test "seed() creates a seed": check(seed().len == 32)
+    test "seed() doesn't give the same data every time":
+      check(seed() != seed())
+
+    test "sign & verify":
+      let my_kp = createKeypair(seed())
+      let their_kp = createKeypair(seed())
+      let sig = sign(Testdata, their_kp)
+
+      check(verify(Testdata, sig, their_kp.publicKey))
+      check(not verify("Testdata", sig, their_kp.publicKey))
+      check(not verify(Testdata, sig, my_kp.publicKey))
+
+    test "key exchange":
+      let my_kp = createKeypair(seed())
+      let their_kp = createKeypair(seed())
+
+      let my_shared = keyExchange(their_kp.publicKey, my_kp.privateKey)
+      let their_shared = keyExchange(my_kp.publicKey, their_kp.privateKey)
+
+      check(my_shared == their_shared)
